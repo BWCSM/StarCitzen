@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Star Citizen Ship Browser</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #1b1b1b;
+        color: #e0e0e0;
+        padding: 20px;
+    }
+    h1 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #2a2a2a;
+    }
+    th, td {
+        padding: 8px;
+        border-bottom: 1px solid #444;
+        text-align: left;
+    }
+    th {
+        background: #333;
+        cursor: pointer;
+    }
+    tr:hover {
+        background: #3a3a3a;
+    }
+    img {
+        width: 80px;
+        height: auto;
+        border-radius: 4px;
+    }
+    #searchBox {
+        width: 300px;
+        padding: 8px;
+        margin-bottom: 15px;
+        font-size: 16px;
+    }
+</style>
+</head>
+<body>
+
+<h1>Star Citizen Ship Browser</h1>
+
+<input type="text" id="searchBox" placeholder="Search ships...">
+
+<table id="shipTable">
+    <thead>
+        <tr>
+            <th>Image</th>
+            <th>Ship</th>
+            <th>Role</th>
+            <th>Manufacturer</th>
+            <th>Price (aUEC)</th>
+            <th>Buy Location</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+// API endpoints
+const SHIP_API = "https://api.starcitizen.tools/v2/ships?include=media";
+const UEX_API = "https://api.uexcorp.uk/v2/ships";
+
+// Normalise names for matching
+function normalise(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Fetch ship stats + images
+async function fetchShips() {
+    const res = await fetch(SHIP_API);
+    const data = await res.json();
+
+    return data.data.map(ship => ({
+        name: ship.name,
+        role: ship.focus || "Unknown",
+        manufacturer: ship.manufacturer || "Unknown",
+        image: ship.media?.images?.[0]?.source || ""
+    }));
+}
+
+// Fetch prices + buy locations
+async function fetchPrices() {
+    const res = await fetch(UEX_API);
+    const data = await res.json();
+
+    return data.data.map(entry => ({
+        name: entry.name,
+        price: entry.price || "Unknown",
+        location: entry.location || "Unknown"
+    }));
+}
+
+// Merge ship stats with price/location rows
+async function buildTable() {
+    const ships = await fetchShips();
+    const prices = await fetchPrices();
+
+    const tbody = document.querySelector("#shipTable tbody");
+    tbody.innerHTML = "";
+
+    prices.forEach(p => {
+        const ship = ships.find(s => normalise(s.name) === normalise(p.name));
+        if (!ship) return;
+
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td><img src="${ship.image}" alt="${ship.name}"></td>
+            <td>${ship.name}</td>
+            <td>${ship.role}</td>
+            <td>${ship.manufacturer}</td>
+            <td>${p.price.toLocaleString()}</td>
+            <td>${p.location}</td>
+        `;
+
+        tbody.appendChild(row);
+    });
+}
+
+// Search filter
+document.getElementById("searchBox").addEventListener("input", function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll("#shipTable tbody tr");
+
+    rows.forEach(row => {
+        const name = row.children[1].textContent.toLowerCase();
+        row.style.display = name.includes(filter) ? "" : "none";
+    });
+});
+
+// Load everything
+buildTable();
+</script>
+
+</body>
+</html>
